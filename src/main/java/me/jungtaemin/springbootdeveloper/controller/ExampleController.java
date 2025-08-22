@@ -20,7 +20,7 @@ public class ExampleController {
         examplePerson.setAge(11);
         examplePerson.setHobbies(List.of("운동", "독서"));
 
-        model.addAttribute("Person", examplePerson);
+        model.addAttribute("person", examplePerson);
         model.addAttribute("today", LocalDate.now());
 
         return "example";
