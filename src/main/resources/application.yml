@@ -5,9 +5,22 @@ spring:
       hibernate:
         format_sql: true
     defer-datasource-initialization: true
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
   h2:
     console:
       enabled: true
-  jwt:
-    issuer: ajufresh@gmail.com
-    secret_key: study-springboot
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${CLIENT_ID}
+            client-secret: ${CLIENT_PASSWORD}
+            scope:
+              - email
+              - profile
+jwt:
+  issuer: ajufresh@gmail.com
+  secret_key: study-springboot
