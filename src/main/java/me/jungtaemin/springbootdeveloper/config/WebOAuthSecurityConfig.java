@@ -3,6 +3,7 @@ package me.jungtaemin.springbootdeveloper.config;
 import lombok.RequiredArgsConstructor;
 import me.jungtaemin.springbootdeveloper.config.jwt.TokenProvider;
 import me.jungtaemin.springbootdeveloper.config.oauth.OAuth2AuthorizationRequestBasedOnCookieRepository;
+import me.jungtaemin.springbootdeveloper.config.oauth.OAuth2SuccessHandler;
 import me.jungtaemin.springbootdeveloper.config.oauth.OAuth2UserCustomService;
 import me.jungtaemin.springbootdeveloper.repository.RefreshTokenRepository;
 import me.jungtaemin.springbootdeveloper.service.UserService;
@@ -17,7 +18,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import static org.springframework.boot.autoconfigure.security.servlet.PathRequest.toH2Console;
 
@@ -34,44 +34,54 @@ public class WebOAuthSecurityConfig {
     public WebSecurityCustomizer configure() {
         return (web) -> web.ignoring()
                 .requestMatchers(toH2Console())
-                .requestMatchers(
-                        new AntPathRequestMatcher("/img/**"),
-                        new AntPathRequestMatcher("/css/**"),
-                        new AntPathRequestMatcher("/js/**")
-                );
+                .requestMatchers("/img/**", "/css/**", "/js/**");
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
-                .logout(AbstractHttpConfigurer::disable)
-                .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-                .authorizeRequests(auth -> auth
-                        .requestMatchers(new AntPathRequestMatcher("/api/token")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/api/**")).authenticated()
-                        .anyRequest().permitAll())
-                .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/login")
-                        .authorizationEndpoint(authorizationEndpoint ->
-                                authorizationEndpoint.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository()))
-                        .userInfoEndpoint(userInfoEndPoint -> userInfoEndpoint.userService(oAuth2UserCustomService))
-                        .successHandler(oAuth2SuccessHandler())
-                )
-                .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .defaultAuthenticationEntryPointFor(
-                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                                new AntPathRequestMatcher("/api/**")
-                        ))
-                .build();
+                .logout(AbstractHttpConfigurer::disable);
+
+        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
+        http.sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/token").permitAll()
+                .requestMatchers("/api/**").authenticated()
+                .anyRequest().permitAll()
+        );
+
+        http.oauth2Login(oauth2 -> oauth2
+                .loginPage("/login")
+                .authorizationEndpoint(authz ->
+                        authz.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository()))
+                .successHandler(oAuth2SuccessHandler())
+                .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserCustomService))
+        );
+
+        http.exceptionHandling(ex -> ex
+                .defaultAuthenticationEntryPointFor(
+                        new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                        request -> request.getServletPath() != null && request.getServletPath().startsWith("/api/"))
+        );
+
+        return http.build();
     }
 
     @Bean
     public OAuth2SuccessHandler oAuth2SuccessHandler() {
-        return new OAuth2SuccessHandler(tokenProvider, refreshTokenRepository, oAuth2AuthorizationRequestBasedOnCookieRepository(), userService);
+        return new OAuth2SuccessHandler(
+                tokenProvider,
+                refreshTokenRepository,
+                oAuth2AuthorizationRequestBasedOnCookieRepository(),
+                userService
+        );
     }
 
     @Bean
