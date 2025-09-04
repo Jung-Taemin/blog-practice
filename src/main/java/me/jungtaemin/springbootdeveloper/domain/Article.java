@@ -40,12 +40,6 @@ public class Article {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Article(String title, String content) {
-        this.title = title;
-        this.content = content;
-    }
-
-    @Builder
     public Article(String author, String title, String content) {
         this.author = author;
         this.title = title;
